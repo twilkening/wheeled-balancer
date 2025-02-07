@@ -30,3 +30,6 @@
 *.exe
 *.out
 *.app
+
+# Draw.io backups
+*.drawio.bkp
