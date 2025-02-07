@@ -33,3 +33,7 @@
 
 # Draw.io backups
 *.drawio.bkp
+
+# MATLAB/Simulink
+*/slprj
+
