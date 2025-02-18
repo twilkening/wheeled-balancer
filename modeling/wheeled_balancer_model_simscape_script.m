@@ -14,14 +14,14 @@ mu_c = 0.02; % bearing viscous friction coeff. for rotational speed
 
 syms g_sym mu_c_sym m_sym m_c_sym l_sym J_sym r_sym
 % Linearized Model about (x,theta) = (0,0)
-A0 = [0, 1, 0, 0; 
+Asym = [0, 1, 0, 0; 
     0, -(g_sym*mu_c_sym*l_sym^2*m_sym^2 + g_sym*m_c_sym*mu_c_sym*l_sym^2*m_sym + J_sym*g_sym*mu_c_sym*m_sym +...
     J_sym*g_sym*m_c_sym*mu_c_sym)/(r_sym*(m_sym*m_c_sym*l_sym^2 + J_sym*m_sym + J_sym*m_c_sym)), ...
     -(g_sym*l_sym^2*m_sym^2)/(m_sym*m_c_sym*l_sym^2 + J_sym*m_sym + J_sym*m_c_sym), 0;
     0, 0, 0, 1; 
     0, (l_sym*m_sym*(g_sym*m_sym*mu_c_sym + g_sym*m_c_sym*mu_c_sym))/(r_sym*(m_sym*m_c_sym*l_sym^2 + J_sym*m_sym + J_sym*m_c_sym)),...
     (l_sym*m_sym*(g_sym*m_sym*r_sym + g_sym*m_c_sym*r_sym))/(r_sym*(m_sym*m_c_sym*l_sym^2 + J_sym*m_sym + J_sym*m_c_sym)), 0];
-B0 = [0;
+Bsym = [0;
     (m_sym*r_sym*l_sym^2 + J_sym*r_sym)/(r_sym*(m_sym*m_c_sym*l_sym^2 + J_sym*m_sym + J_sym*m_c_sym));
     0;
     -(l_sym*m_sym)/(m_sym*m_c_sym*l_sym^2 + J_sym*m_sym + J_sym*m_c_sym)];
@@ -56,9 +56,9 @@ J = (I_motor + I_bump + I_batt + I_cb); % kg*m^2 - mass moment of inertia of the
 
 r = 40/1000; % [m]
 
-A = double(subs(A0,[g_sym,m_c_sym,m_sym,mu_c_sym,l_sym,J_sym,r_sym],...
+A = double(subs(Asym,[g_sym,m_c_sym,m_sym,mu_c_sym,l_sym,J_sym,r_sym],...
     [g,m_c,m,mu_c,l,J,r]));
-B = double(subs(B0,[g_sym,m_c_sym,m_sym,mu_c_sym,l_sym,J_sym,r_sym],...
+B = double(subs(Bsym,[g_sym,m_c_sym,m_sym,mu_c_sym,l_sym,J_sym,r_sym],...
     [g,m_c,m,mu_c,l,J,r]));
 % outputting both the x-position and theta_dot angle-rate
 C = [1 0 0 0; 0 0 0 1];
@@ -70,7 +70,7 @@ plant_continuous = ss(A,B,C,D,'statename',states,'inputname',inputs,'outputname'
 
 %% Discretize System
 T = 1/100; % 0.01s, 100Hz
-plant = c2d(cplant,T);
+plant = c2d(plant_continuous,T);
 [G, H, Cd, Dd] = ssdata(plant);
 
 %% Define Control Gains
@@ -86,3 +86,14 @@ Gbar = [G, zeros(4,1); -Cprime, 1];
 Hbar = [H; 0];
 K = acker(Gbar, Hbar, pd_control); Ks = K(1:end-1), Ki = K(end),
 L = place(G',Cd',pd_observer)'
+
+%% Plot after simulation
+
+% x - xhat = xtilde (error)
+xsim = [out.x.data, out.v.data, out.x.data - out.xhat.data];
+figure; t2 = myplot2(out.x.Time, xsim);
+title(t2, {"$\bf I.C.\ Response$"; "From: u"}, 'Interpreter', 'Latex')
+
+usim = -Ks*out.xhat.data' -Ki*out.v.data';
+figure; stairs(out.x.Time,usim); ylabel('Newtons');
+title('Control Effort');
