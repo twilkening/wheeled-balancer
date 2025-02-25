@@ -73,7 +73,7 @@ T = 1/100; % 0.01s, 100Hz
 plant = c2d(plant_continuous,T);
 [G, H, Cd, Dd] = ssdata(plant);
 
-%% Define Control Gains
+%% Define Control Gains - Discrete PI + Luenberger
 
 pc_control = [-3, -4, -5, -6, -7]; % add one pole for integral state
 pd_control = exp(T*pc_control);
@@ -87,7 +87,7 @@ Hbar = [H; 0];
 K = acker(Gbar, Hbar, pd_control); Ks = K(1:end-1), Ki = K(end),
 L = place(G',Cd',pd_observer)'
 
-%% Plot after simulation
+%% Plot after simulation - discrete PI + Luenberger
 
 % x - xhat = xtilde (error)
 xsim = [out.x.data, out.v.data, out.x.data - out.xhat.data];
@@ -96,4 +96,54 @@ title(t2, {"$\bf I.C.\ Response$"; "From: u"}, 'Interpreter', 'Latex')
 
 usim = -Ks*out.xhat.data' -Ki*out.v.data';
 figure; stairs(out.x.Time,usim); ylabel('Newtons');
+title('Control Effort');
+
+%% Define Control Gains - discrete P
+
+% desired close-loop pole locations:
+pc = [-3, -4, -6, -10];
+pd = exp(T*pc);
+
+% Feedback controller
+K = acker(G,H,pd);
+
+%% Plot after simulation - discrete P
+
+% x - xhat = xtilde (error)
+xsim = out.x.data;
+figure; 
+t = tiledlayout(2,1);
+nexttile;
+stairs(out.x.Time, xsim(:,1)); % x
+ylabel('To: x')
+nexttile;
+stairs(out.x.Time, xsim(:,4)); % thetadot
+ylabel('To: $\dot{\theta}$','Interpreter','latex')
+title(t, {"$\bf Step\ Response$"; "From: u"}, 'Interpreter', 'Latex')
+
+usim = -K*out.x.data' + 1;
+figure; plot(out.x.Time,usim); ylabel('Newtons');
+title('Control Effort');
+
+%% Define Control Gains - continuous PI + Luenberger
+
+pc_control = [-3, -4, -5, -6, -7]; % add one pole for integral state
+pc_observer = [-20,-21,-22,-23]*4;
+
+C2 = [1 0];
+Cprime = C2*C;
+Abar = [A, zeros(4,1); -Cprime, 0];
+Bbar = [B; 0];
+K = acker(Abar, Bbar, pc_control), Ks = K(1:end-1); Ki = K(end);
+L = place(A',C',pc_observer)'
+
+%% Plot after simulation - continuous PI + Luenberger
+
+% x - xhat = xtilde (error)
+xsim = [out.x.data, out.x_i.data, out.x.data - out.xhat.data];
+figure; t2 = myplot2(out.x.Time, xsim);
+title(t2, {"$\bf I.C.\ Response$"; "From: u"}, 'Interpreter', 'Latex')
+
+usim = -Ks*out.xhat.data' -Ki*out.x_i.data';
+figure; plot(out.x.Time,usim); ylabel('Newtons');
 title('Control Effort');
