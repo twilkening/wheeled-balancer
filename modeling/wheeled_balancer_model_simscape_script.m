@@ -10,6 +10,8 @@ m_c = (m_wheels); % [kg] - mass of cart (i.e. the wheels of the segway)
 m = m_motor + m_bump + m_batt + m_cb; % [kg] - mass of "pole"
 mu_c = 0.02; % bearing viscous friction coeff. for rotational speed
 
+theta_init = 0; % [rad] initial angle of pendulum (from vertical)
+
 %% System Model
 
 syms g_sym mu_c_sym m_sym m_c_sym l_sym J_sym r_sym
@@ -112,14 +114,19 @@ K = acker(G,H,pd);
 % x - xhat = xtilde (error)
 xsim = out.x.data;
 figure; 
-t = tiledlayout(2,1);
+t = tiledlayout(3,1);
 nexttile;
 stairs(out.x.Time, xsim(:,1)); % x
 ylabel('To: x')
 nexttile;
+stairs(out.x.Time, xsim(:,3)); % theta
+ylabel('To: $\theta$','Interpreter','latex')
+nexttile;
 stairs(out.x.Time, xsim(:,4)); % thetadot
 ylabel('To: $\dot{\theta}$','Interpreter','latex')
 title(t, {"$\bf Step\ Response$"; "From: u"}, 'Interpreter', 'Latex')
+
+
 
 usim = -K*out.x.data' + 1;
 figure; plot(out.x.Time,usim); ylabel('Newtons');
