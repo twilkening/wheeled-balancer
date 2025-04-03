@@ -24,6 +24,8 @@ public:
         // Initialize the states
         xn[0] = xinit[0];
         xn[1] = xinit[1];
+        std::cout << "----------------------------------------" << std::endl;
+        std::cout << "RK4 Solver Initialized" << std::endl;
         std::cout << "h: " << h << std::endl;
         std::cout << "t_end: " << t_end << std::endl;
         std::cout << "t: " << t << ", x0: " << xn[0] << ", x1: " << xn[1] << std::endl;
