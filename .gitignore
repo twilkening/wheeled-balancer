@@ -40,3 +40,6 @@
 */slprj
 */*.slxc
 
+# Visual Studio files
+*.vs/
+

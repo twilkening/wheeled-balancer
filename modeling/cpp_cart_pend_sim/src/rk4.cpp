@@ -2,6 +2,8 @@
 #include <vector>
 #include <array>
 #include <iostream>
+#include <fstream>
+#include <string>
 
 // RK4 class for solving ODEs using the Runge-Kutta 4th order method
 // This class is designed to solve a system of two first-order ODEs
@@ -32,7 +34,7 @@ public:
     }
     void step(); // perform a single RK4 step
     bool isComplete() const; // check if the simulation is complete
-    void run(); // run the RK4 solver
+    void run(std::string fname); // run the RK4 solver
     std::array<double, 2> getState() const; // get the current state
 };
 
@@ -61,13 +63,29 @@ bool rk4::isComplete() const
     return t >= t_end;
 }
 
-void rk4::run()
+void rk4::run(std::string fname)
 {
+    // Open a CSV file for writing
+    std::ofstream file(fname);
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open file for writing." << std::endl;
+        return;
+    }
+
+    // Write the header row
+    file << "Time,x0,x1\n";
+
+    // Write the initial state
+    file << t << "," << xn[0] << "," << xn[1] << "\n";
+
+    // Run the simulation
     while (t < t_end) {
         step();
-        std::cout << "t: " << t << ", x0: " << xn[0] << ", x1: " << xn[1] << std::endl;
-        // You can also store the results in a vector or array if needed
+        file << t << "," << xn[0] << "," << xn[1] << "\n"; // Write each step to the file
     }
+
+    file.close(); // Close the file
+    std::cout << "Simulation data written to " << fname << std::endl;
 }
 
 std::array<double, 2> rk4::getState() const
