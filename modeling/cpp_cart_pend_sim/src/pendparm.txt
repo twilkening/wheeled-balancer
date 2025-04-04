@@ -1,0 +1,4 @@
+9.81 // [m/s^2] - g - gravitational acceleration
+0.5 // [m] - l - length of the pendulum
+0.2 // - beta - damping ratio
+1.0 // [kg] - m - mass of the pendulum bob

@@ -1,5 +1,5 @@
-0.0 // t0
-10.0 // t_end
-0.001 // h, time step
-1.5708 // theta0
-0.0 // omega0
+0.0 // [s] t0
+10.0 // [s] t_end
+0.001 // [s] h, time step
+1 // [rad] theta0
+0.0 // [rad/s] omega0

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <functional> // For std::function
 
 // RK4 class for solving ODEs using the Runge-Kutta 4th order method
 // This class is designed to solve a system of two first-order ODEs
@@ -14,10 +15,11 @@ class rk4
     const double h; // step size
     double t; // current time
     double t_end; // end time
-    double (*f0)(double, double, double); // function pointer for the ODE0
-    double (*f1)(double, double, double); // function pointer for the ODE1
+    std::function<double(double, double, double)> f0; // Callable for ODE0
+    std::function<double(double, double, double)> f1; // Callable for ODE1
 public:
-    rk4(double (*f0)(double, double, double), double (*f1)(double, double, double),
+    rk4(std::function<double(double, double, double)> f0,
+        std::function<double(double, double, double)> f1,
         double xinit[2], double t0, double t_end, double h)
         : f0(f0), f1(f1), t(t0), t_end(t_end), h(h)
     {
@@ -31,7 +33,6 @@ public:
         std::cout << "t: " << t << ", x0: " << xn[0] << ", x1: " << xn[1] << std::endl;
         std::cout << "f0: " << f0(t, xn[0], xn[1]) << std::endl;
         std::cout << "f1: " << f1(t, xn[0], xn[1]) << std::endl;
-        std::cout << "----------------------------------------" << std::endl;
         std::cout << "----------------------------------------" << std::endl;
     }
     void step(); // perform a single RK4 step
