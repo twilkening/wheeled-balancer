@@ -4,7 +4,7 @@ m_motor = 9.5*2/1000; % [kg] documentation
 m_bump = 35/1000; % [kg] documentation
 m_batt = 138/1000; % [kg] measured
 m_wheels = 39.7/1000; % [kg] documentation
-m_cb = (200/1000 - m_motor - m_bump - m_wheels); % [kg] measured value
+m_cb = 106.3; % (200/1000 - m_motor - m_bump - m_wheels); % [kg] measured value
 
 m_c = (m_wheels); % [kg] - mass of cart (i.e. the wheels of the segway)
 m = m_motor + m_bump + m_batt + m_cb; % [kg] - mass of "pole"
