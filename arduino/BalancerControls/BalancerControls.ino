@@ -109,7 +109,7 @@ void standUp()
   {
     delay(UPDATE_TIME_MS);
     balanceUpdateSensors();
-    if(angle < 60000)
+    if(angle < 60000) // start balancing within 60 degrees from vertical
     {
       break;
     }

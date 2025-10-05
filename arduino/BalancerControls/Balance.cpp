@@ -1,5 +1,6 @@
 #include <Wire.h>
 #include "Balance.h"
+#include "PIDController.h"
 
 int32_t gYZero;
 int32_t angle; // millidegrees
@@ -13,6 +14,9 @@ int32_t driveRight;
 int16_t motorSpeed;
 bool isBalancingStatus = false;
 bool balanceUpdateDelayedStatus;
+
+// PID Controllers
+PIDController* anglePID = nullptr;
 
 bool isBalancing()
 {
@@ -52,6 +56,8 @@ void balanceSetup()
   }
 
   gYZero = total / CALIBRATION_ITERATIONS;
+
+  initializeAnglePID();
 }
 
 // This function contains the core algorithm for balancing a
@@ -66,29 +72,45 @@ void balance()
   // average, or we would fall over.
   angle = angle * 999 / 1000;
 
-  // This variable measures how close we are to our basic
-  // balancing goal - being on a trajectory that would cause us
-  // to rise up to the vertical position with zero speed left at
-  // the top.  This is similar to the fallingAngleOffset used
-  // for LED feedback and a calibration procedure discussed at
-  // the end of Balancer.ino.
-  //
-  // It is in units of millidegrees, like the angle variable, and
-  // you can think of it as an angular estimate of how far off we
-  // are from being balanced.
-  int32_t risingAngleOffset = angleRate * ANGLE_RATE_RATIO + angle;
+  // // This variable measures how close we are to our basic
+  // // balancing goal - being on a trajectory that would cause us
+  // // to rise up to the vertical position with zero speed left at
+  // // the top.  This is similar to the fallingAngleOffset used
+  // // for LED feedback and a calibration procedure discussed at
+  // // the end of Balancer.ino.
+  // //
+  // // It is in units of millidegrees, like the angle variable, and
+  // // you can think of it as an angular estimate of how far off we
+  // // are from being balanced.
+  // int32_t risingAngleOffset = angleRate * ANGLE_RATE_RATIO + angle;
 
-  // Combine risingAngleOffset with the distance and speed
-  // variables, using the calibration constants defined in
-  // Balance.h, to get our motor response.  Rather than becoming
-  // the new motor speed setting, the response is an amount that
-  // is added to the motor speeds, since a *change* in speed is
-  // what causes the robot to tilt one way or the other.
-  motorSpeed += (
-    + ANGLE_RESPONSE * risingAngleOffset
-    + DISTANCE_RESPONSE * (distanceLeft + distanceRight)
-    + SPEED_RESPONSE * (speedLeft + speedRight)
-    ) / 100 / GEAR_RATIO;
+  // // Combine risingAngleOffset with the distance and speed
+  // // variables, using the calibration constants defined in
+  // // Balance.h, to get our motor response.  Rather than becoming
+  // // the new motor speed setting, the response is an amount that
+  // // is added to the motor speeds, since a *change* in speed is
+  // // what causes the robot to tilt one way or the other.
+  // motorSpeed += (
+  //   + ANGLE_RESPONSE * risingAngleOffset
+  //   + DISTANCE_RESPONSE * (distanceLeft + distanceRight)
+  //   + SPEED_RESPONSE * (speedLeft + speedRight)
+  //   ) / 100 / GEAR_RATIO;
+
+  // Add safety check before using anglePID
+  if (!anglePID) {
+      return;
+  }
+  
+  // Primary balance control using angle PID
+  int16_t angle_control = anglePID->calculate(0, angle, UPDATE_TIME_MS);
+
+  // stall torque of motors is about 70 mN-m
+  // PWM range is -400 to +400
+  // so 70 mN-m * GEAR_RATIO / 400 = 22.225 mN-m per PWM cnt
+  // GEAR_RATIO / (mNm / PWM cnt) = 127 / 22.225 = 5.72 cnt per mN-m
+  // thus we have 1/5.72 = 0.175 mN-m per control effort cnt
+  // if we want to dampen the response, we can scale this down
+  motorSpeed += (angle_control / GEAR_RATIO) * 100 / 572; // scale down so 1 cnt = 1 mN-m
 
   if (motorSpeed > MOTOR_SPEED_LIMIT)
   {
@@ -134,9 +156,9 @@ void lyingDown()
 void integrateGyro()
 {
   // Apply sensitivity gain to gyro readings: 35 mdps/LSB  (for FS = +/-1000 dps)
-  angleRate = (imu.g.y - gYZero) / 29;
+  angleRate = (imu.g.y - gYZero) / 29; // units: degrees/s
 
-  angle += angleRate * UPDATE_TIME_MS;
+  angle += angleRate * UPDATE_TIME_MS; // units: millidegrees
 }
 
 void integrateEncoders()
@@ -160,6 +182,8 @@ void balanceDrive(int16_t leftSpeed, int16_t rightSpeed)
   driveRight = rightSpeed;
 }
 
+// sets an offset to the distance and speed tracker to force the 
+// balancer to think it has driven a certain amount, and thus return to "0"
 void balanceDoDriveTicks()
 {
   distanceLeft -= driveLeft;
@@ -233,4 +257,29 @@ void balanceUpdate()
       count = 0;
     }
   }
+}
+
+// PID Controller Functions
+void initializeAnglePID() {
+  
+  // Use int32_t with scaled integers for PID gains
+  // note, the torque delta is calculated *every* time step
+  int32_t kp_scaled = 10;  // mN-m (output) / millidegree (angle) 
+  int32_t ki_scaled = 0;   // mN-m (output) / millidegree (angle)
+  int32_t kd_scaled = 0;   // mN-m (output) / millidegree (angle)
+  int16_t angle_integral_limit = 500; // Limit integral windup 
+  int16_t angle_output_limit =  1000;   // Limit motor speed contribution
+
+  anglePID = new PIDController(kp_scaled, ki_scaled, kd_scaled, 
+                                    angle_integral_limit, angle_output_limit);
+  
+}
+
+// Accessor functions for PID controllers
+PIDController* getPIDController() {
+  return anglePID;
+}
+
+void resetPIDControllers() {
+  if (anglePID) anglePID->reset();
 }

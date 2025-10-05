@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <LSM6.h>
 #include <Balboa32U4.h>
+#include "PIDController.h"
 
 // This code was developed for a Balboa unit using 50:1 motors
 // and 45:21 plastic gears, for an overall gear ratio of 111.
@@ -100,7 +101,7 @@ const int32_t STOP_BALANCING_ANGLE = 70000;
 // These variables will be accessible from your sketch.
 extern int32_t angle; // units: millidegrees
 extern int32_t angleRate; // units: degrees/s (or millidegrees/ms)
-extern int16_t motorSpeed; // current (average) motor speed setting
+extern int16_t motorSpeed; // current (average) motor PWM setting (-300 to 300 normal, 400 turbo)
 
 // These variables must be defined in your sketch.
 extern LSM6 imu;
@@ -144,3 +145,13 @@ void balanceUpdateSensors();
 // after a large motion, so that robot does not try to make a
 // huge correction to get back to "zero".
 void balanceResetEncoders();
+
+// PID Controller Functions
+// Initialize angle PID controller (call once in balanceSetup())
+void initializeAnglePID();
+
+// Get access to PID controllers for tuning
+PIDController* getPIDController();
+
+// Reset all PID controllers
+void resetPIDControllers();
