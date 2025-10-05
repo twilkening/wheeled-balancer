@@ -40,6 +40,12 @@ Balboa32U4ButtonC buttonC;
 
 void setup()
 {
+  // for debugging purposes, comment out if not using
+  // Serial.begin(9600);
+  // while (!Serial) {
+  //   ; // wait for serial port to connect - needed for Leonardo type board
+  // }
+
   // Uncomment these lines if your motors are reversed.
   // motors.flipLeftMotor(true);
   // motors.flipRightMotor(true);

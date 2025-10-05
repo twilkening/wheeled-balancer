@@ -83,10 +83,10 @@ void PIDController::getGains(int32_t* kp_out, int32_t* ki_out, int32_t* kd_out) 
     if (kd_out) *kd_out = kd;
 }
 
-void PIDController::setIntegralLimit(int32_t limit) {
+void PIDController::setIntegralLimit(int16_t limit) {
     int_limit = limit;
 }
 
-void PIDController::setOutputLimit(int32_t limit) {
+void PIDController::setOutputLimit(int16_t limit) {
     output_limit = limit;
 }

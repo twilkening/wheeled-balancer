@@ -110,7 +110,7 @@ void balance()
   // GEAR_RATIO / (mNm / PWM cnt) = 127 / 22.225 = 5.72 cnt per mN-m
   // thus we have 1/5.72 = 0.175 mN-m per control effort cnt
   // if we want to dampen the response, we can scale this down
-  motorSpeed += (angle_control / GEAR_RATIO) * 100 / 572; // scale down so 1 cnt = 1 mN-m
+  motorSpeed -= (angle_control / GEAR_RATIO) * 100 / 572; // scale down so 1 cnt = 1 mN-m
 
   if (motorSpeed > MOTOR_SPEED_LIMIT)
   {
@@ -130,6 +130,9 @@ void balance()
   motors.setSpeeds(
     motorSpeed + distanceDiff * DISTANCE_DIFF_RESPONSE / 100,
     motorSpeed - distanceDiff * DISTANCE_DIFF_RESPONSE / 100);
+
+  // Serial.print("motorSpeed command: ");
+  // Serial.println(motorSpeed);
 }
 
 void lyingDown()
@@ -139,6 +142,7 @@ void lyingDown()
   distanceLeft = 0;
   distanceRight = 0;
   motors.setSpeeds(0, 0);
+  resetPIDControllers();
 
   if (angleRate > -2 && angleRate < 2)
   {
@@ -264,20 +268,15 @@ void initializeAnglePID() {
   
   // Use int32_t with scaled integers for PID gains
   // note, the torque delta is calculated *every* time step
-  int32_t kp_scaled = 10;  // mN-m (output) / millidegree (angle) 
-  int32_t ki_scaled = 0;   // mN-m (output) / millidegree (angle)
-  int32_t kd_scaled = 0;   // mN-m (output) / millidegree (angle)
-  int16_t angle_integral_limit = 500; // Limit integral windup 
-  int16_t angle_output_limit =  1000;   // Limit motor speed contribution
+  int32_t kp_scaled = 15;  // mN-m (output) / millidegree (angle) 
+  int32_t ki_scaled = 2;   // mN-m (output) / millidegree (angle)
+  int32_t kd_scaled = 2500;   // mN-m (output) / millidegree (angle)
+  int16_t angle_integral_limit = 6000; // Limit integral windup 
+  int16_t angle_output_limit =  20000;   // Limit motor speed contribution, 0 = no limit
 
   anglePID = new PIDController(kp_scaled, ki_scaled, kd_scaled, 
                                     angle_integral_limit, angle_output_limit);
   
-}
-
-// Accessor functions for PID controllers
-PIDController* getPIDController() {
-  return anglePID;
 }
 
 void resetPIDControllers() {

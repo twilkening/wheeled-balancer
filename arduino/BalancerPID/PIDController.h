@@ -40,7 +40,7 @@ public:
      * @param dt_ms Time step in milliseconds (0 = auto-calculate from millis())
      * @return Control output
      */
-    double calculate(int32_t reference, int32_t measurement, uint32_t dt_ms = 0);
+    int16_t calculate(int32_t reference, int32_t measurement, uint32_t dt_ms = 0);
     
     /**
      * Reset the PID controller (clears integral and derivative history)
