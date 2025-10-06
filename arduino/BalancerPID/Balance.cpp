@@ -110,7 +110,7 @@ void balance()
   // GEAR_RATIO / (mNm / PWM cnt) = 127 / 22.225 = 5.72 cnt per mN-m
   // thus we have 1/5.72 = 0.175 mN-m per control effort cnt
   // if we want to dampen the response, we can scale this down
-  motorSpeed -= (angle_control / GEAR_RATIO) * 100 / 572; // scale down so 1 cnt = 1 mN-m
+  motorSpeed += (angle_control / GEAR_RATIO) * 100 / 572; // scale down so 1 cnt = 1 mN-m
 
   if (motorSpeed > MOTOR_SPEED_LIMIT)
   {

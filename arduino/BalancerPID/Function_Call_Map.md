@@ -1,13 +1,13 @@
 # Function Call Map for Two-Wheeled Inverted Pendulum Arduino Code
 
-This document provides a comprehensive map of function interactions in the balancing robot codebase.
+This document provides a comprehensive map of function interactions in the balancing robot codebase with integrated PID controller implementation.
 
-## Main Program Flow (`Balancer.ino`)
+## Main Program Flow (`BalancerPID.ino`)
 
 ### Setup Function
 ```
 setup()
-├── balanceSetup() → Initialize IMU and calibrate gyro
+├── balanceSetup() → Initialize IMU, calibrate gyro, and setup PID controllers
 └── Set LED states
 ```
 
@@ -55,16 +55,15 @@ balanceUpdate() (called every 10ms from main loop)
 
 ### Control Algorithm
 ```
-balance() (core PID-like controller)
+balance() (core PID controller implementation)
 ├── Drift compensation: angle = angle * 999/1000
-├── Calculate risingAngleOffset = angleRate * ANGLE_RATE_RATIO + angle
-├── PID calculation:
-│   motorSpeed += (ANGLE_RESPONSE * risingAngleOffset +
-│                  DISTANCE_RESPONSE * (distanceLeft + distanceRight) +
-│                  SPEED_RESPONSE * (speedLeft + speedRight)) / 100 / GEAR_RATIO
+├── Safety check: Verify anglePID is initialized
+├── PID angle control:
+│   ├── anglePID->calculate(0, angle, UPDATE_TIME_MS) → Calculate control output
+│   └── Scale and apply to motorSpeed: -= (angle_control/GEAR_RATIO) * 100/572
 ├── Apply motor speed limits
 ├── Calculate steering correction: distanceDiff = distanceLeft - distanceRight
-└── motors.setSpeeds() → Apply final motor commands
+└── motors.setSpeeds() → Apply final motor commands with steering adjustment
 ```
 
 ## Sensor Processing Functions
@@ -84,6 +83,50 @@ lyingDown() (when robot is horizontal)
 ├── IF angleRate is very small:
 │   ├── Use accelerometer: angle = atan2(imu.a.z, imu.a.x) * 57296
 │   └── Reset distance measurements
+```
+
+## PID Controller Functions (`PIDController.cpp`)
+
+### PID Controller Class
+```
+PIDController::PIDController() (constructor)
+├── Initialize gains: kp, ki, kd
+├── Initialize state: e_prior=0, integral=0, first_run=true
+├── Set limits: integral_limit, output_limit
+└── Store current time: t_prior
+
+PIDController::calculate() (main PID computation)
+├── Calculate time step: dt = current_time - t_prior (or use provided dt_ms)
+├── Calculate error: error = reference - measurement
+├── Calculate derivative: derivative = (error - e_prior) / dt
+├── Update integral with anti-windup:
+│   ├── integral += error * dt
+│   └── Clamp to ±integral_limit if enabled
+├── Calculate output: output = kp*error + ki*integral + kd*derivative
+├── Apply output saturation if enabled: clamp to ±output_limit
+├── Update history: e_prior = error, t_prior = current_time
+└── Return control output
+
+PIDController::reset()
+├── Clear error history: e_prior = 0
+├── Clear integral: integral = 0
+├── Reset timing: t_prior = millis(), first_run = true
+```
+
+### PID Integration Functions
+```
+initializeAnglePID() (called from balanceSetup())
+├── Define scaled PID gains:
+│   ├── kp_scaled = 15 (mN-m per millidegree)
+│   ├── ki_scaled = 2 (mN-m per millidegree-ms)
+│   └── kd_scaled = 2500 (mN-m per millidegree/ms)
+├── Set limits:
+│   ├── angle_integral_limit = 6000
+│   └── angle_output_limit = 20000
+└── Create PIDController instance: anglePID = new PIDController(...)
+
+resetPIDControllers()
+└── anglePID->reset() → Clear PID state when robot falls
 ```
 
 ## User Interface Functions
@@ -123,6 +166,14 @@ playSong()
 - **`distanceLeft/Right`**: Accumulated wheel distances
 - **`speedLeft/Right`**: Current wheel speeds
 - **`driveLeft/Right`**: User-commanded drive speeds
+- **`anglePID`**: Pointer to angle PID controller instance
+- **`gYZero`**: Gyro zero offset from calibration
+
+### PID Controller Internal State
+- **`e_prior`**: Previous error value for derivative calculation
+- **`integral`**: Accumulated integral term with anti-windup
+- **`t_prior`**: Previous time stamp for dt calculation
+- **`first_run`**: Flag to handle first execution cycle
 
 ### Output
 - **Motors**: `motors.setSpeeds(left, right)`
@@ -131,11 +182,12 @@ playSong()
 
 ## Control Parameters
 
-### PID-like Control Constants
-- **`ANGLE_RESPONSE`** (11): Primary balance correction
-- **`DISTANCE_RESPONSE`** (73): Position holding
-- **`SPEED_RESPONSE`** (3300): Oscillation damping  
-- **`DISTANCE_DIFF_RESPONSE`** (-50): Steering correction
+### PID Controller Gains (Angle Control)
+- **`kp_scaled`** (15): Proportional gain - mN-m output per millidegree angle error
+- **`ki_scaled`** (2): Integral gain - mN-m output per millidegree-ms accumulated error  
+- **`kd_scaled`** (2500): Derivative gain - mN-m output per millidegree/ms angle rate error
+- **`angle_integral_limit`** (6000): Anti-windup limit for integral accumulator
+- **`angle_output_limit`** (20000): Saturation limit for PID output
 
 ### Timing and Thresholds
 - **`UPDATE_TIME_MS`** (10): 100 Hz control loop
@@ -146,11 +198,26 @@ playSong()
 
 ## Architecture Summary
 
-This implementation uses a classic inverted pendulum control architecture with cascaded loops:
+This implementation uses a classic inverted pendulum control architecture with a formal PID controller:
 
-1. **Inner Loop**: Stabilizes the tilt angle using gyroscope feedback
-2. **Outer Loops**: Control position and handle user commands for autonomous behaviors
-3. **State Machine**: Manages transitions between balancing and non-balancing states
-4. **User Interface**: Provides button controls and audio/visual feedback
+1. **Inner Loop**: PID-controlled angle stabilization using gyroscope feedback
+   - Proportional term: Responds to current angle error
+   - Integral term: Eliminates steady-state error with anti-windup protection
+   - Derivative term: Provides damping against oscillations
+2. **State Machine**: Manages transitions between balancing and non-balancing states
+3. **User Interface**: Provides button controls and audio/visual feedback
+4. **PID Controller**: Dedicated class with proper integral windup protection and output saturation
 
-The control algorithm runs at 100 Hz and combines angle, position, and velocity feedback to maintain balance while allowing controlled movement and user interaction.
+The control algorithm runs at 100 Hz with a dedicated PID controller that provides more predictable and tunable performance compared to the previous ad-hoc control law.
+
+## File Structure
+
+### Core Files
+- **`BalancerPID.ino`**: Main Arduino sketch with setup() and loop() functions
+- **`Balance.h`**: Header file with constants, function declarations, and PID controller interface
+- **`Balance.cpp`**: Core balancing algorithm implementation with PID integration
+
+### PID Controller Module  
+- **`PIDController.h`**: PID controller class header with method declarations
+- **`PIDController.cpp`**: PID controller implementation with anti-windup and saturation
+- **`Function_Call_Map.md`**: This documentation file

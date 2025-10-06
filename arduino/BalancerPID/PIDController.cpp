@@ -46,7 +46,7 @@ int16_t PIDController::calculate(int32_t reference, int32_t measurement, uint32_
     }
     
     // Calculate control output
-    int32_t output = kp * error + ki * integral + kd * derivative;
+    int32_t output = -kp * error - ki * integral - kd * derivative;
     
     // Apply output saturation if enabled
     if (output_limit > 0) {
