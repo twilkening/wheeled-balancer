@@ -39,9 +39,11 @@ int16_t LQRController::calculate(
     if (dt <= 0) dt = 10; // Minimum 10ms
 
     // Calculate control output
+    // offset angle measurement by 3352 millidegrees to account for IMU mounting angle w.r.t. CoM location
+    // **0.058508 radians * 180 deg / pi radians * 1000 millideg/deg = 3352 millidegrees
     int32_t output =  ( - (int32_t)kx        * (*measurement0 - reference0)         // mNm
                         - (int32_t)kx_dot    * (*measurement1 - reference1)         // mNm
-                        - (int32_t)kth       * (*measurement2 - reference2) / 1000  // convert uNm to mNm
+                        - (int32_t)kth       * (*measurement2 - 3352 - reference2) / 1000  // convert uNm to mNm
                         - (int32_t)kth_dot   * (*measurement3 - reference3) )       // mNm
                         / 2; // divide by 2 bc two motors
 
