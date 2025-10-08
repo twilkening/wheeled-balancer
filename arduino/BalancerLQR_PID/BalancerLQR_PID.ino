@@ -1,4 +1,4 @@
-// This example shows how to make a Balboa balance on its two
+ // This example shows how to make a Balboa balance on its two
 // wheels and drive around while balancing.
 //
 // To run this demo, you will need to install the LSM6 library:

@@ -16,7 +16,7 @@ bool isBalancingStatus = false;
 bool balanceUpdateDelayedStatus;
 
 // LQR Controller - static allocation to avoid heap fragmentation
-static LQR_PIDController angleLQR_PID(0, 0, 0, 0, 0); // Will be properly initialized in setup
+static LQR_PIDController angleLQR_PID(0, 0, 0, 0, 0, 0, 0, 0, 0); // Will be properly initialized in setup
 bool lqr_pid_initialized = false;
 
 bool isBalancing()
@@ -258,9 +258,9 @@ void initializeLQR_PIDController() {
   const int16_t kx_dot_scaled = (int16_t)(-1.4363 * 16.4913);   // Velocity gain [mN-m per cnts/10ms]
   const int16_t kth_scaled = (int16_t)(-58.7283 * 17.453);      // Angle gain [*uN-m* per millidegree]
   const int16_t kth_dot_scaled = (int16_t)(-1.6316 * 17.453);   // Angular velocity gain [mN-m per degree/s]
-  const int16_t kp_scaled = static_cast<int16_t>(0.3 * 1200);     // Proportional gain [millidegrees per cnts]
-  const int16_t ki_scaled = static_cast<int16_t>(1 * 1.2);      // Integral gain [millidegrees per (cnts*ms)] (set to 1 as minimum)
-  const int32_t kd_scaled = static_cast<int32_t>(0.8 * 1200000);   // Derivative gain [millidegrees per (cnts/ms)]
+  const int16_t kp_scaled = static_cast<int16_t>(0.001 * 1200);     // Proportional gain [millidegrees per cnts]
+  const int16_t ki_scaled = static_cast<int16_t>(0 * 1.2);      // Integral gain [millidegrees per (cnts*ms)] (set to 1 as minimum)
+  const int32_t kd_scaled = static_cast<int32_t>(0.0001 * 1200000);   // Derivative gain [millidegrees per (cnts/ms)]
   const int32_t angle_integrator_limit = 1000; // millidegrees, <= 0 is no limit
   const int32_t angle_output_limit = 32000;   // <= 0 is no limit
 
