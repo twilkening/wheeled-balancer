@@ -80,7 +80,7 @@ void balance()
   }
 
   // Define reference values for LQR calculation
-  int16_t ref_distance = 0, ref_speed = 0, ref_angle = 0, ref_angleRate = 0;
+  int32_t ref_distance = 0, ref_speed = 0, ref_angle = 0, ref_angleRate = 0;
   int32_t distance = (distanceLeft + distanceRight) / 2;
   static int32_t speed_history[3] = {0, 0, 0};
   speed_history[2] = speed_history[1];
@@ -89,15 +89,15 @@ void balance()
   int32_t speed_filtered = (speed_history[0] + speed_history[1] + speed_history[2]) / 3;
 
   // Primary balance control using LQR
-  int16_t angle_control = angleLQR_PID.calculate(ref_distance, ref_speed, ref_angle, ref_angleRate,
-                                            &distance, &speed_filtered, &angle, &angleRate);
+  int32_t angle_control = angleLQR_PID.calculate(ref_distance, ref_speed, ref_angle, ref_angleRate,
+                                                    distance, speed_filtered, angle, angleRate);
 
   // stall torque of motors is about 70 mN-m
   // PWM range is -400 to +400
   // => 400 / (70 mN-m * GEAR_RATIO) = 0.0449943 PWM cnt / mN-m
   // angle_control is in mN-m, so convert to PWM command 
-  // (use int32_t to prevent overflow):
-  motorSpeed = (int16_t)(((int32_t)angle_control * 45) / 1000);
+  // Using bit shift for speed: >> 10 ≈ / 1024 (close to / 1000)
+  motorSpeed = (int16_t)((angle_control * 45) >> 10);
 
   if (motorSpeed > MOTOR_SPEED_LIMIT)
   {
@@ -254,13 +254,13 @@ void balanceUpdate()
 void initializeLQR_PIDController() {
   
   // Use int16_t with scaled integers for LQR gains (must fit in -32,767 to 32,767)
-  const int16_t kx_scaled = 0;      // Position gain
-  const int16_t kx_dot_scaled = (int16_t)(-1.4363 * 16.4913);   // Velocity gain [mN-m per cnts/10ms]
-  const int16_t kth_scaled = (int16_t)(-58.7283 * 17.453);      // Angle gain [*uN-m* per millidegree]
-  const int16_t kth_dot_scaled = (int16_t)(-1.6316 * 17.453);   // Angular velocity gain [mN-m per degree/s]
-  const int16_t kp_scaled = static_cast<int16_t>(0.001 * 1200);     // Proportional gain [millidegrees per cnts]
-  const int16_t ki_scaled = static_cast<int16_t>(0 * 1.2);      // Integral gain [millidegrees per (cnts*ms)] (set to 1 as minimum)
-  const int32_t kd_scaled = static_cast<int32_t>(0.0001 * 1200000);   // Derivative gain [millidegrees per (cnts/ms)]
+  const int32_t kx_scaled = 0;      // Position gain
+  const int32_t kx_dot_scaled = (int32_t)(-1.4363 * 16.4913);   // Velocity gain [mN-m per cnts/10ms]
+  const int32_t kth_scaled = (int32_t)(-58.7283 * 17.453);      // Angle gain [*uN-m* per millidegree]
+  const int32_t kth_dot_scaled = (int32_t)(-1.6316 * 17.453);   // Angular velocity gain [mN-m per degree/s]
+  const int32_t kp_scaled = 10;     // Proportional gain [millidegrees per cnts]
+  const int32_t ki_scaled = 0;      // Integral gain [millidegrees per (cnts*ms)] (set to 1 as minimum)
+  const int32_t kd_scaled = 0;   // Derivative gain [millidegrees per (cnts/ms)]
   const int32_t angle_integrator_limit = 1000; // millidegrees, <= 0 is no limit
   const int32_t angle_output_limit = 32000;   // <= 0 is no limit
 

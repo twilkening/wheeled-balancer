@@ -8,15 +8,13 @@
  */
 class LQR_PIDController {
 private:
-    // LQR gains
-    // could make these const to free up memory if desired
-    int16_t kx, kx_dot, kth, kth_dot; // State feedback gains
+    // LQR gains - using int32_t for better performance (no casting needed)
+    int32_t kx, kx_dot, kth, kth_dot; // State feedback gains
     // PID gains
-    int16_t kp, ki;
-    int32_t kd;
+    int32_t kp, ki, kd;
 
     // Limits and settings
-    int16_t last_error; // Last error for derivative calculation
+    int32_t last_error; // Last error for derivative calculation
     int32_t integrator; // Integral term accumulator
     int32_t integrator_limit; // Integral windup limit
     uint32_t t_prior;      // time of prior update (ms)
@@ -32,8 +30,8 @@ public:
      * @param kth_dot_gain Angular velocity gain
      * @param output_limit Output saturation limit (0 = no limit)
      */
-    LQR_PIDController(int16_t kx_gain, int16_t kx_dot_gain, int16_t kth_gain, int16_t kth_dot_gain,
-                    int16_t kp_gain, int16_t ki_gain, int32_t kd_gain,
+    LQR_PIDController(int32_t kx_gain, int32_t kx_dot_gain, int32_t kth_gain, int32_t kth_dot_gain,
+                    int32_t kp_gain, int32_t ki_gain, int32_t kd_gain,
                     int32_t integrator_limit_in = 0, int32_t output_limit_in = 0);
     
     /**
@@ -43,15 +41,15 @@ public:
      * @param dt_ms Time step in milliseconds (0 = auto-calculate from millis())
      * @return Control output
      */
-    int16_t calculate(
-        int16_t reference0,
-        int16_t reference1,
-        int16_t reference2,
-        int16_t reference3,
-        int32_t* measurement0,
-        int32_t* measurement1,
-        int32_t* measurement2,
-        int32_t* measurement3,
+    int32_t calculate(
+        int32_t reference0,
+        int32_t reference1,
+        int32_t reference2,
+        int32_t reference3,
+        int32_t measurement0,
+        int32_t measurement1,
+        int32_t measurement2,
+        int32_t measurement3,
         uint32_t dt_ms = 0
     );
     
@@ -65,9 +63,7 @@ public:
      * @param integrator_limit Integral windup limit
      * @return PID control output
      */
-    int32_t PID(int16_t* setpoint, int32_t* measurement, uint32_t* dt,
-                int16_t* Kp, int16_t* Ki, int32_t* Kd, 
-                int32_t* integrator_limit_in);
+    int32_t PID(int32_t setpoint, int32_t measurement, uint32_t dt);
 
     /**
      * Reset the LQR controller (clears integral and derivative history)
