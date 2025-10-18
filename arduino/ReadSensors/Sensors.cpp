@@ -1,15 +1,45 @@
 #include <Wire.h>
-#include "Balance.h"
-#include "LQR_PIDController.h"
+#include "Sensors.h"
 
 int32_t gYZero;
 int32_t angle; // millidegrees
 int32_t angleRate; // degrees/s
-bool balanceUpdateDelayedStatus;
+bool sensorsUpdateDelayedStatus;
 
-bool balanceUpdateDelayed()
+bool sensorsUpdateDelayed()
 {
-  return balanceUpdateDelayedStatus;
+  return sensorsUpdateDelayedStatus;
+}
+
+void sensorsSetup()
+{
+  // Initialize IMU.
+  Wire.begin();
+  if (!imu.init())
+  {
+    while(true)
+    {
+      Serial.println("Failed to detect and initialize IMU!");
+      delay(200);
+    }
+  }
+  imu.enableDefault();
+  imu.writeReg(LSM6::CTRL2_G, 0b01011000); // 208 Hz, 1000 deg/s
+
+  // Wait for IMU readings to stabilize.
+  delay(1000);
+
+    // Calibrate the gyro.
+  int32_t total = 0;
+  for (int i = 0; i < CALIBRATION_ITERATIONS; i++)
+  {
+    imu.read();
+    total += imu.g.y;
+    delay(2;
+  }
+  
+  gYZero = total / CALIBRATION_ITERATIONS;
+
 }
 
 void writeSensors()
@@ -38,7 +68,7 @@ void writeSensors()
   
 }
 
-void readSensors()
+void sensorsUpdate()
 {
   static uint16_t lastMillis;
   uint16_t ms = millis();
@@ -46,7 +76,7 @@ void readSensors()
 
   // Perform the balance updates at 100 Hz.
   if ((uint16_t)(ms - lastMillis) < UPDATE_TIME_MS) { return; }
-  balanceUpdateDelayedStatus = ms - lastMillis > UPDATE_TIME_MS + 1;
+  readSensorsUpdateDelayedStatus = ms - lastMillis > UPDATE_TIME_MS + 1;
   lastMillis = ms;
   
   imu.read();

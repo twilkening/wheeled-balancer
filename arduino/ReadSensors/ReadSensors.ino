@@ -1,6 +1,6 @@
 #include <Wire.h>
 #include <LSM6.h>
-#include "readSensors.h"
+#include "Sensors.h"
 
 LSM6 imu;
 
@@ -12,7 +12,7 @@ void setup()
 
   ledYellow(0);
   ledRed(1);
-  balanceSetup();
+  sensorsSetup();
   ledRed(0);
 
   Serial.begin(57600);
@@ -21,9 +21,9 @@ void setup()
 
 void loop()
 {
-  readSensors();
+  sensorsUpdate();
 
   // Illuminate the red LED if the last full update was too slow.
-  ledRed(balanceUpdateDelayed());
+  ledRed(sensorsUpdateDelayed());
 
 }
