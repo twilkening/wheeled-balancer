@@ -65,15 +65,6 @@ void balanceSetup()
 // Balboa 32U4 robot.
 void balance()
 {
-  // Adjust toward angle=0 with timescale ~10s, to compensate for
-  // gyro drift.  More advanced AHRS systems use the
-  // accelerometer as a reference for finding the zero angle, but
-  // this is a simpler technique: for a balancing robot, as long
-  // as it is balancing, we know that the angle must be zero on
-  // average, or we would fall over.
-  // TODO - replace with accelerometer-based correction
-  angle = angle * 999 / 1000;
-
   // Add safety check before using angleLQR_PID
   if (!lqr_pid_initialized) {
       return;
@@ -107,6 +98,13 @@ void balance()
   {
     motorSpeed = -MOTOR_SPEED_LIMIT;
   }
+
+  // static uint32_t last_memory_print = 0;
+  // if (millis() - last_memory_print > 1000) {  // Print every second
+  //     Serial.print("Distance: ");
+  //     Serial.println(distance);
+  //     last_memory_print = millis();
+  // }
 
   // Adjust for differences in the left and right distances; this
   // will prevent the robot from rotating as it rocks back and
@@ -149,7 +147,24 @@ void integrateGyro()
   // Apply sensitivity gain to gyro readings: 35 mdps/LSB  (for FS = +/-1000 dps)
   angleRate = (imu.g.y - gYZero) / 29; // units: degrees/s
 
-  angle += angleRate * UPDATE_TIME_MS; // units: millidegrees
+  // angle += angleRate * UPDATE_TIME_MS; // units: millidegrees
+  
+  // Calculate angle from accelerometer (reference for low frequencies)
+  // Only update accel angle when robot is relatively still to avoid motion artifacts
+  static int32_t accel_angle = 0;
+  int32_t gyro_prediction = angle + angleRate * UPDATE_TIME_MS;
+
+  if (abs(angleRate) < 50) { // Only trust accelerometer when angular velocity is low
+    accel_angle = atan2(imu.a.z, imu.a.x) * 57296; // millidegrees
+    
+    // Integer complementary filter: (252*gyro_prediction + 4*accel_angle) / 256
+    // Uses fixed-point arithmetic: alpha = 252/256 ≈ 0.984
+    angle = ((gyro_prediction << 8) - (gyro_prediction << 2) + (accel_angle << 2)) >> 8;
+
+  } else {
+    angle = gyro_prediction;
+  }
+  
 }
 
 void integrateEncoders()
@@ -254,14 +269,14 @@ void balanceUpdate()
 void initializeLQR_PIDController() {
   
   // Use int16_t with scaled integers for LQR gains (must fit in -32,767 to 32,767)
-  const int32_t kx_scaled = 0;      // Position gain
-  const int32_t kx_dot_scaled = (int32_t)(-1.4363 * 16.4913);   // Velocity gain [mN-m per cnts/10ms]
-  const int32_t kth_scaled = (int32_t)(-58.7283 * 17.453);      // Angle gain [*uN-m* per millidegree]
-  const int32_t kth_dot_scaled = (int32_t)(-1.6316 * 17.453);   // Angular velocity gain [mN-m per degree/s]
-  const int32_t kp_scaled = 10;     // Proportional gain [millidegrees per cnts]
-  const int32_t ki_scaled = 0;      // Integral gain [millidegrees per (cnts*ms)] (set to 1 as minimum)
-  const int32_t kd_scaled = 0;   // Derivative gain [millidegrees per (cnts/ms)]
-  const int32_t angle_integrator_limit = 1000; // millidegrees, <= 0 is no limit
+  const int32_t kx_scaled = (int32_t)(-5.476 * 165);      // Position gain [uN-m per cnt]
+  const int32_t kx_dot_scaled = (int32_t)(-8.1977 * 16.4913);   // Velocity gain [mN-m per cnts/10ms]
+  const int32_t kth_scaled = (int32_t)(-60.6799 * 17.453);      // Angle gain [*uN-m* per millidegree]
+  const int32_t kth_dot_scaled = (int32_t)(-2.1721 * 17.453);   // Angular velocity gain [mN-m per degree/s]
+  const int32_t kp_scaled = 0; // (int32_t)(0.3 * 1200 / 127 * 1000);     // Proportional gain [microdegrees per cnts]
+  const int32_t ki_scaled = 0; // (int32_t)(0.12 * 1.2 / 127 * 1000);      // Integral gain [microdegrees per (cnts*ms)] (set to 1 as minimum)
+  const int32_t kd_scaled = 0; // (int32_t)(0.8 * 1200000 / 127 * 1000);   // Derivative gain [microdegrees per (cnts/ms)]
+  const int32_t angle_integrator_limit = 700; // cnts, <= 0 is no limit
   const int32_t angle_output_limit = 32000;   // <= 0 is no limit
 
   // Initialize the static LQR controller
