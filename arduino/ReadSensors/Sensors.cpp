@@ -74,13 +74,13 @@ void sensorsSetup()
 }
 
 
-void sensorsFilter(uint16_t ms)
+void sensorsFilterUpdate(uint16_t ms)
 {
   // read from the gyro + accelerometer
   // -- Apply sensitivity gain to gyro readings: 35 mdps/LSB  (for FS = +/-1000 dps)
-  int32_t gyroRate = (imu.g.y - gYZero) / 29; // units: degrees/s
-  int32_t gyroAngle = angle + gyroRate * ms; // units: millidegress; difference equation integration
-  int32_t accAngle = atan2(imu.a.z, imu.a.x) * 57296; // millidegrees
+  float gyroRate = (imu.g.y - gYZero) / 29; // units: degrees/s
+  float gyroAngle = angle + gyroRate * ms; // units: millidegress; difference equation integration
+  float accAngle = (atan2(imu.a.z, imu.a.x) * 57296) / 1000.0f; // degrees
 
   // pass readings into the kalman filter objects
   gyroKalmanFilter.update(gyroRate);
@@ -94,13 +94,17 @@ void sensorsFilter(uint16_t ms)
   float* gyroP = gyroKalmanFilter.getCovariance();
   float* accP = accKalmanFilter.getCovariance();
 
-  // print states for debugging using a single print call
-  static char debugBuffer[150];  // Static buffer to avoid repeated allocation
-  snprintf(debugBuffer, sizeof(debugBuffer), 
-          "Time(ms): %u, Gyro State: %.3f, %.3f, %.3f, Acc State: %.3f, %.3f, %.3f\n",
-          ms, gyroState[0], gyroState[1], gyroState[2], 
-          accState[0], accState[1], accState[2]);
-  Serial.print(debugBuffer);
+  // print states for debugging using a single print call, at 20Hz
+  static uint16_t lastPrintMillis = 0;
+  if ((uint16_t)(ms - lastPrintMillis) > 50) {
+    static char debugBuffer[150];  // Static buffer to avoid repeated allocation
+    snprintf(debugBuffer, sizeof(debugBuffer),
+            "Time(ms): %u, Gyro State: %.3f, %.3f, %.3f, Acc State: %.3f, %.3f, %.3f\n",
+            ms, gyroState[0], gyroState[1], gyroState[2],
+            accState[0], accState[1], accState[2]);
+    Serial.print(debugBuffer);
+    lastPrintMillis = ms;
+  }
 
 
   // TODO: implement sensor fusion of the two estimates - first just use gyro estimate so that I can see KF working
@@ -125,9 +129,9 @@ void sensorsFilter(uint16_t ms)
   // fusedGyroBias = P_inv[2][2] * (gyroState[2] / gyroP[8] +  accState[2] / accP[8]);
 
   // output to global variables
-  angle = gyroState[0];
-  angleRate = gyroState[1];
-  gYZero = gyroState[2];
+  angle = (int32_t)(gyroState[0] * 1000); // convert to millidegrees
+  angleRate = (int32_t)(gyroState[1]); // degrees/s
+  gYZero = (int32_t)(gyroState[2]);
 }
 
 void sensorsUpdate()
@@ -149,7 +153,7 @@ void sensorsUpdate()
   sensorsUpdateDelayedStatus = ms - lastMillis > UPDATE_TIME_MS + 1;
 
   // finally, update the Kalman filter with the new sensor readings
-  sensorsFilter(ms);
+  sensorsFilterUpdate(ms);
 
   lastMillis = ms;
     

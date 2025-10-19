@@ -13,10 +13,10 @@ class KalmanFilter {
         float* getState();
         float* getCovariance();
     private:
-        float dt; // nominal time step
+        float dt; // nominal time step in seconds
         float Q[3][3]; // Process noise variance
         float R; // Measurement noise variance
-        float state[3]; // [angle, angleRate, gyroBias]
+        float state[3]; // [angle, angleRate, gyroBias] ; [degrees, degrees/s, degrees/s]
         float P[3][3]; // Error covariance matrix
         float F[3][3]; // State transition matrix
         float H[3]; // Measurement matrix

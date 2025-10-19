@@ -30,7 +30,7 @@ void KalmanFilter::initialize(
     float P_init[3][3],
     float H_init[3])
 {
-    this->dt = dt;
+    this->dt = dt; // seconds
     // Set process noise variance matrix Q, diagonal elements
     for (int i = 0; i < 3; i++) {
         Q[i][i] = procNoise[i];
@@ -58,7 +58,7 @@ void KalmanFilter::initialize(
 
 void KalmanFilter::update(float measurement) {
     // Measurement update
-    float e = measurement - H[0] * state[0] + H[1] * state[1] + H[2] * state[2]; // Innovation
+    float e = measurement - (H[0] * state[0] + H[1] * state[1] + H[2] * state[2]); // Innovation
     float P_Ht[3]; // P * Ht
     // Re = H * P * Ht + R
     float Re; // Innovation covariance

@@ -17,7 +17,7 @@ void sensorsSetup();
 void sensorsUpdate();
 
 // apply Kalman filter and update angle and angleRate variables
-void sensorsFilter();
+void sensorsFilterUpdate(uint16_t ms);
 
 // Returns true if the last update cycle was delayed to more than
 // UPDATE_TIME_MS+1 milliseconds.  This could indicate
