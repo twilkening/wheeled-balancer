@@ -1,5 +1,4 @@
 #include "KalmanFilter.h"
-#include <MatrixMath.h>
 #include <string.h>  // For memcpy
 
 // Kalman Filter constructor implementation
@@ -84,7 +83,7 @@ void KalmanFilter::update(float measurement) {
         {  -K_fi[2] * H[0],    -K_fi[2] * H[1], 1 -K_fi[2] * H[2]}
     };
     float newP[3][3];
-    Matrix.Multiply((float*)I_KH, (float*)P, 3, 3, 3, (float*)newP);
+    MatrixMultiply((float*)I_KH, (float*)P, 3, 3, 3, (float*)newP);
     // Copy newP back to P using memcpy (more efficient than nested loops)
     memcpy(P, newP, sizeof(float) * 9);
 }
@@ -123,5 +122,25 @@ float* KalmanFilter::getState() {
 
 float* KalmanFilter::getCovariance() {
     return &P[0][0];
+}
+
+//Matrix Multiplication Routine
+// C = A*B
+void KalmanFilter::MatrixMultiply(float* A, float* B, int m, int p, int n, float* C)
+{
+	// A = input matrix (m x p)
+	// B = input matrix (p x n)
+	// m = number of rows in A
+	// p = number of columns in A = number of rows in B
+	// n = number of columns in B
+	// C = output matrix = A*B (m x n)
+	int i, j, k;
+	for (i = 0; i < m; i++)
+		for(j = 0; j < n; j++)
+		{
+			C[n * i + j] = 0;
+			for (k = 0; k < p; k++)
+				C[n * i + j] = C[n * i + j] + A[p * i + k] * B[n * k + j];
+		}
 }
 

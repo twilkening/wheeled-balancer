@@ -12,6 +12,7 @@ class KalmanFilter {
         void predict();
         float* getState();
         float* getCovariance();
+        void MatrixMultiply(float* A, float* B, int m, int p, int n, float* C);
     private:
         float dt; // nominal time step in seconds
         float Q[3][3]; // Process noise variance

@@ -60,12 +60,12 @@ void sensorsSetup()
   float dt = UPDATE_TIME_MS / 1000.0f; // convert ms to s
   float x_init_gyro[3] = { (float)angle, 0.0f, (float)gYZero }; // initial state: [angle, angleRate, gyroBias]
   float x_init_acc[3] = { (float)angle, 0.0f, (float)gYZero }; // initial state: [angle, angleRate, gyroBias]
-  float R_gyro = 1e-2; // measurement noise variance
-  float R_acc = 1e-2; // measurement noise variance
-  float Q[3] = { 1e-4, 1e-4, 1e-6 }; // process noise variances for [angle, angleRate, gyroBias]
-  float P_init[3][3] =  { {1.0, 0.0, 0.0},
-                          {0.0, 1.0, 0.0},
-                          {0.0, 0.0, 1.0} };
+  float R_gyro = 1e-1; // measurement noise variance
+  float R_acc = 1; // measurement noise variance
+  float Q[3] = { 1e-2, 1e-2, 1e-4 }; // process noise variances for [angle, angleRate, gyroBias]
+  float P_init[3][3] =  { {1e-3, 0.0, 0.0},
+                          {0.0, 1e-2, 0.0},
+                          {0.0, 0.0, 1e-4} };
   float H_gyro[3] = { 0.0, 1.0, -1.0 }; // measurement matrix for gyro
   float H_acc[3] = { 1.0, 0.0, 0.0 }; // measurement matrix for accelerometer
   gyroKalmanFilter.initialize(dt, x_init_gyro, Q, R_gyro, P_init, H_gyro);
@@ -96,13 +96,28 @@ void sensorsFilterUpdate(uint16_t ms)
 
   // print states for debugging using a single print call, at 20Hz
   static uint16_t lastPrintMillis = 0;
+  // issues with printing floats on Arduino - workaround is to use 
+  // if ((uint16_t)(ms - lastPrintMillis) > 50) {
+  //   static char debugBuffer[175];  // Static buffer to avoid repeated allocation
+  //   snprintf(debugBuffer, sizeof(debugBuffer),
+  //           "Time(ms): %u, Raw: %.3f, %.3f, %.3f, Gyro State: %.3f, %.3f, %.3f, Acc State: %.3f, %.3f, %.3f\n",
+  //           ms, accAngle, gyroRate, gYZero,
+  //           gyroState[0], gyroState[1], gyroState[2],
+  //           accState[0], accState[1], accState[2]);
+  //   Serial.print(debugBuffer);
+  //   lastPrintMillis = ms;
+  // }
   if ((uint16_t)(ms - lastPrintMillis) > 50) {
-    static char debugBuffer[150];  // Static buffer to avoid repeated allocation
-    snprintf(debugBuffer, sizeof(debugBuffer),
-            "Time(ms): %u, Gyro State: %.3f, %.3f, %.3f, Acc State: %.3f, %.3f, %.3f\n",
-            ms, gyroState[0], gyroState[1], gyroState[2],
-            accState[0], accState[1], accState[2]);
-    Serial.print(debugBuffer);
+    Serial.print("Time(ms): "); Serial.print(ms);
+    Serial.print(", Raw: "); Serial.print(accAngle, 3);
+    Serial.print(", "); Serial.print(gyroRate, 3);
+    Serial.print(", "); Serial.print(gYZero);
+    Serial.print(", Gyro State: "); Serial.print(gyroState[0], 3);
+    Serial.print(", "); Serial.print(gyroState[1], 3);
+    Serial.print(", "); Serial.print(gyroState[2], 3);
+    Serial.print(", Acc State: "); Serial.print(accState[0], 3);
+    Serial.print(", "); Serial.print(accState[1], 3);
+    Serial.print(", "); Serial.println(accState[2], 3);
     lastPrintMillis = ms;
   }
 
