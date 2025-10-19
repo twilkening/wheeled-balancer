@@ -1,9 +1,15 @@
 #include <Wire.h>
 #include "Sensors.h"
+#include "KalmanFilter.h"
 
 int32_t gYZero;
 int32_t angle; // millidegrees
 int32_t angleRate; // degrees/s
+KalmanFilter gyroKalmanFilter;
+KalmanFilter accKalmanFilter;
+float gyroP[3][3];
+float accP[3][3];
+float P[3][3];
 bool sensorsUpdateDelayedStatus;
 
 bool sensorsUpdateDelayed()
@@ -29,57 +35,122 @@ void sensorsSetup()
   // Wait for IMU readings to stabilize.
   delay(1000);
 
-    // Calibrate the gyro.
-  int32_t total = 0;
+  // Calibrate the gyro offset and initial angle
+  // assume we are at rest
+  int32_t totalGyro = 0;
+  int32_t totalAcc = 0;
   for (int i = 0; i < CALIBRATION_ITERATIONS; i++)
   {
     imu.read();
-    total += imu.g.y;
-    delay(2;
+    totalGyro += imu.g.y;
+
+    // It's really calm, so use the accelerometer to measure the
+    // robot's rest angle.  The atan2 function returns a result
+    // in radians, so we multiply it by 180000/pi to convert it
+    // to millidegrees.
+    totalAcc = atan2(imu.a.z, imu.a.x) * 57296; // millidegrees
+    
+    delay(2);
   }
-  
-  gYZero = total / CALIBRATION_ITERATIONS;
+  gYZero = totalGyro / CALIBRATION_ITERATIONS;
+  angle = totalAcc / CALIBRATION_ITERATIONS;
+  angleRate = 0; // assume we are at rest
+
+  // setup Kalman Filter matrices
+  float dt = UPDATE_TIME_MS / 1000.0f; // convert ms to s
+  float x_init_gyro[3] = { (float)angle, 0.0f, (float)gYZero }; // initial state: [angle, angleRate, gyroBias]
+  float x_init_acc[3] = { (float)angle, 0.0f, (float)gYZero }; // initial state: [angle, angleRate, gyroBias]
+  float R_gyro = 1e-2; // measurement noise variance
+  float R_acc = 1e-2; // measurement noise variance
+  float Q[3] = { 1e-4, 1e-4, 1e-6 }; // process noise variances for [angle, angleRate, gyroBias]
+  float P_init[3][3] =  { {1.0, 0.0, 0.0},
+                          {0.0, 1.0, 0.0},
+                          {0.0, 0.0, 1.0} };
+  float H_gyro[3] = { 0.0, 1.0, -1.0 }; // measurement matrix for gyro
+  float H_acc[3] = { 1.0, 0.0, 0.0 }; // measurement matrix for accelerometer
+  gyroKalmanFilter.initialize(dt, x_init_gyro, Q, R_gyro, P_init, H_gyro);
+  accKalmanFilter.initialize(dt, x_init_acc, Q, R_acc, P_init, H_acc);
 
 }
 
-void writeSensors()
+
+void sensorsFilter(uint16_t ms)
 {
-  // Apply sensitivity gain to gyro readings: 35 mdps/LSB  (for FS = +/-1000 dps)
-  angleRate = (imu.g.y - gYZero) / 29; // units: degrees/s
+  // read from the gyro + accelerometer
+  // -- Apply sensitivity gain to gyro readings: 35 mdps/LSB  (for FS = +/-1000 dps)
+  int32_t gyroRate = (imu.g.y - gYZero) / 29; // units: degrees/s
+  int32_t gyroAngle = angle + gyroRate * ms; // units: millidegress; difference equation integration
+  int32_t accAngle = atan2(imu.a.z, imu.a.x) * 57296; // millidegrees
 
-  // angle += angleRate * UPDATE_TIME_MS; // units: millidegrees
-  
-  // Calculate angle from accelerometer (reference for low frequencies)
-  // Only update accel angle when robot is relatively still to avoid motion artifacts
-  static int32_t accel_angle = 0;
-  int32_t gyro_prediction = angle + angleRate * UPDATE_TIME_MS;
+  // pass readings into the kalman filter objects
+  gyroKalmanFilter.update(gyroRate);
+  accKalmanFilter.update(accAngle);
+  gyroKalmanFilter.predict();
+  accKalmanFilter.predict();
 
-  if (abs(angleRate) < 50) { // Only trust accelerometer when angular velocity is low
-    accel_angle = atan2(imu.a.z, imu.a.x) * 57296; // millidegrees
-    
-    // Integer complementary filter: (252*gyro_prediction + 4*accel_angle) / 256
-    // Uses fixed-point arithmetic: alpha = 252/256 ≈ 0.984
-    angle = ((gyro_prediction << 8) - (gyro_prediction << 2) + (accel_angle << 2)) >> 8;
+  // get P and xhat estimates out of the kalman filter objects
+  float* gyroState = gyroKalmanFilter.getState();
+  float* accState = accKalmanFilter.getState();
+  float* gyroP = gyroKalmanFilter.getCovariance();
+  float* accP = accKalmanFilter.getCovariance();
 
-  } else {
-    angle = gyro_prediction;
-  }
+  // print states for debugging using a single print call
+  static char debugBuffer[150];  // Static buffer to avoid repeated allocation
+  snprintf(debugBuffer, sizeof(debugBuffer), 
+          "Time(ms): %u, Gyro State: %.3f, %.3f, %.3f, Acc State: %.3f, %.3f, %.3f\n",
+          ms, gyroState[0], gyroState[1], gyroState[2], 
+          accState[0], accState[1], accState[2]);
+  Serial.print(debugBuffer);
 
-  
+
+  // TODO: implement sensor fusion of the two estimates - first just use gyro estimate so that I can see KF working
+  // // sensor fusion of the estimates to get angle and angleRate
+  // // may skip this step if using only gyro estimate due to computation time
+  // // (especially when doing inverse calc of 3x3 matrix and checking for positive definiteness)
+  // // P^-1 = (gyroP^-1 + accP^-1)
+  // // xhat = P * (gyroP^-1 * gyroState + accP^-1 * accState)
+  // float fusedAngle, fusedAngleRate, fusedGyroBias;
+  // P[0][0] = 1.0f / gyroP[0] + 1.0f / accP[0];
+  // P[1][1] = 1.0f / gyroP[4] + 1.0f / accP[4];
+  // P[2][2] = 1.0f / gyroP[8] + 1.0f / accP[8]; 
+  // float invDet = 1.0f / (P[0][0] * P[1][1] * P[2][2]); // diagonal matrix inverse
+  // float P_inv[3][3];
+  // for (int i = 0; i < 3; i++) {
+  //   for (int j = 0; j < 3; j++) {
+  //     P_inv[i][j] = invDet * P[i][j];
+  //   }
+  // }
+  // fusedAngle = P_inv[0][0] * (gyroState[0] / gyroP[0] +  accState[0] / accP[0]);
+  // fusedAngleRate = P_inv[1][1] * (gyroState[1] / gyroP[4] +  accState[1] / accP[4]);
+  // fusedGyroBias = P_inv[2][2] * (gyroState[2] / gyroP[8] +  accState[2] / accP[8]);
+
+  // output to global variables
+  angle = gyroState[0];
+  angleRate = gyroState[1];
+  gYZero = gyroState[2];
 }
 
 void sensorsUpdate()
 {
+  // static variable to track time between updates
   static uint16_t lastMillis;
   uint16_t ms = millis();
-  static uint8_t count = 0;
 
-  // Perform the balance updates at 100 Hz.
+  // check if it's time to update the sensors + control effort
   if ((uint16_t)(ms - lastMillis) < UPDATE_TIME_MS) { return; }
-  readSensorsUpdateDelayedStatus = ms - lastMillis > UPDATE_TIME_MS + 1;
+  // read sensors first
+  imu.read(); // tells IMU to put new data in its registers
+
+  // then apply control based on previous sensor readings and KF prediction
+  // <--- apply control to TWIP here when ready, based on KF prediction of what state would be at this point --->
+  // <--- reduces delay between filter estimation and control action --->
+
+  // power on red LED if we were delayed
+  sensorsUpdateDelayedStatus = ms - lastMillis > UPDATE_TIME_MS + 1;
+
+  // finally, update the Kalman filter with the new sensor readings
+  sensorsFilter(ms);
+
   lastMillis = ms;
-  
-  imu.read();
-  writeSensors();
-  
+    
 }
