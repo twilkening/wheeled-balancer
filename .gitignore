@@ -42,6 +42,10 @@
 
 # Visual Studio files
 *.vs/
+*.vscode/
 
 # Python venvs
 venv/
+
+# Log files
+*.log

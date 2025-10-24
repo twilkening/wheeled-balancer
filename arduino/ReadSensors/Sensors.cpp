@@ -78,9 +78,10 @@ void sensorsFilterUpdate(uint16_t ms)
 {
   // read from the gyro + accelerometer
   // -- Apply sensitivity gain to gyro readings: 35 mdps/LSB  (for FS = +/-1000 dps)
-  float gyroRate = (imu.g.y - gYZero) / 29; // units: degrees/s
+  float gyroRate = (imu.g.y - gYZero) / 29.0f; // units: degrees/s
+  // float gyroRate = (imu.g.y) / 29.0f; // units: degrees/s // for logging raw gyro readings without bias removal
   float gyroAngle = angle + gyroRate * ms; // units: millidegress; difference equation integration
-  float accAngle = (atan2(imu.a.z, imu.a.x) * 57296) / 1000.0f; // degrees
+  float accAngle = (atan2((float)imu.a.z, (float)imu.a.x) * 57296.0f) / 1000.0f; // degrees
 
   // pass readings into the kalman filter objects
   gyroKalmanFilter.update(gyroRate);
@@ -94,8 +95,14 @@ void sensorsFilterUpdate(uint16_t ms)
   float* gyroP = gyroKalmanFilter.getCovariance();
   float* accP = accKalmanFilter.getCovariance();
 
+  // // print raw readings for capturing noise levels
+  // Serial.print("ms: "); Serial.print(ms);
+  // Serial.print(", acc: "); Serial.print(accAngle, 5);
+  // Serial.print(", gyro: "); Serial.println(gyroRate, 5);
+
   // print states for debugging using a single print call, at 20Hz
-  static uint16_t lastPrintMillis = 0;
+  // method 1 (failing)
+  // static uint16_t lastPrintMillis = 0;
   // issues with printing floats on Arduino - workaround is to use 
   // if ((uint16_t)(ms - lastPrintMillis) > 50) {
   //   static char debugBuffer[175];  // Static buffer to avoid repeated allocation
@@ -107,7 +114,10 @@ void sensorsFilterUpdate(uint16_t ms)
   //   Serial.print(debugBuffer);
   //   lastPrintMillis = ms;
   // }
-  if ((uint16_t)(ms - lastPrintMillis) > 50) {
+  
+  // method 2 (working)
+  static uint16_t lastPrintMillis = 0;
+  if ((uint16_t)(ms - lastPrintMillis) > 45) {
     Serial.print("Time(ms): "); Serial.print(ms);
     Serial.print(", Raw: "); Serial.print(accAngle, 3);
     Serial.print(", "); Serial.print(gyroRate, 3);
